@@ -1,0 +1,258 @@
+
+Sub ConsolidateAndMerge()
+
+'Turn off screen updating to reduce performance time
+    Application.ScreenUpdating = False
+'prepare the columns
+    Dim readyToRun
+    readyToRun = MsgBox("To prepare, be certain that there are no blank columns before" _
+        & "the end of your sorting area and that you are ready to sort.", vbOKCancel)
+    If readyToRun = 2 Then
+        Exit Sub
+    End If
+    Cells(1, 1).Activate
+
+'Declare all values, set some values
+    Dim LastRow As Integer, SortColumn As Integer, TempRow As Integer, _
+        TempColumn As Integer, LastColumn As Integer, NextCell As Integer, _
+        CompareRow As Integer, FinalRow As Integer, FinalTag As Integer
+    Dim found As Range
+    Dim toSort As String, CurrentColumn As String, ValidWorksheet As String
+    Dim WRKSHHT1 As Worksheet, WRKSHHT2 As Worksheet
+    Dim WSExists As Boolean
+
+    TempRow = 0
+    TempColumn = 0
+    Set WRKSHHT1 = Sheets(ActiveSheet.Name)
+
+'Find the sortColumn
+    toSort = InputBox("Please enter name of column to sort by:")
+    If toSort = "" Then
+        Exit Sub
+    End If
+    SortColumn = FindText(toSort, "Across", SortColumn)
+    If SortColumn = 10000 Then
+        MsgBox ("Please review your columns before entering this program again")
+        Exit Sub
+    End If
+    If SortColumn = 0 Then
+        Exit Sub
+    End If
+
+'Find the last row
+    LastRow = FindText(Empty, "Down", SortColumn) - 1
+
+'rename worksheet2
+    ValidWorksheet = InputBox("Please enter a new worksheet name")
+    WSExists = WSChecker(ValidWorksheet)
+    
+    Do While Len(ValidWorksheet) > 30 _
+        Or Len(ValidWorksheet) = 0 _
+        Or InStr(1, ValidWorksheet, "\") _
+        Or InStr(1, ValidWorksheet, "/") _
+        Or InStr(1, ValidWorksheet, "?") _
+        Or InStr(1, ValidWorksheet, "*") _
+        Or InStr(1, ValidWorksheet, "[") _
+        Or InStr(1, ValidWorksheet, "]") _
+        Or WSExists
+
+        If Len(ValidWorksheet) = 0 Then
+            readyToRun = MsgBox("Cancel running script?", vbYesNo)
+            If readyToRun = 7 Then
+            Else
+                Exit Sub
+            End If
+        End If
+        
+        ValidWorksheet = InputBox("You have entered an invalid name." & vbNewLine & vbNewLine & _
+            "-Make sure the name you entered does not exceed 31 characters." & vbNewLine & _
+            "-Make sure the name does not contain any of the following characters: : \ / ? * [ or ]." & _
+            vbNewLine & "-Make sure you did not leave the name blank." & vbNewLine & _
+            "-Make sure the name you entered does not already exist within the workspace")
+        WSExists = WSChecker(ValidWorksheet)
+        
+    Loop
+
+    Set WRKSHHT2 = Sheets.Add
+    ActiveSheet.Name = ValidWorksheet
+
+
+'Access worksheet 1 and find last column
+    WRKSHHT1.Activate
+    Cells(1, 1).Select
+    LastColumn = FindText(Empty, "Across", SortColumn) - 1
+
+'Copy the Table from Worksheet 1, paste the values in worksheet2
+    Range(ConvertToLetter(1) & "1:" & ConvertToLetter((LastColumn)) & LastRow).Select
+    Selection.Copy
+    WRKSHHT2.Activate
+    WRKSHHT2.Cells(1, 1).Select
+    Range("A1").PasteSpecial
+    
+'Sort all the names Rows by the Primary Key
+    Range("A2:" & ConvertToLetter(LastColumn) & LastRow).Sort key1:= _
+        Range(ConvertToLetter(SortColumn) & "2"), order1:=1
+
+'Sort each Column of Each Instance of Primary Key
+        LoopSort LastRow, LastColumn, SortColumn
+   
+   'Sort the Column to delete Empy Spaces
+   Range("A2:" & ConvertToLetter(LastColumn) & LastRow).Sort _
+   key1:=Range(ConvertToLetter(SortColumn) & 2), order1:=xlAscending
+  
+   Application.ScreenUpdating = True
+   
+End Sub
+
+'This was the Generic Microsoft Convert To Letter formula, but it accounts for columns past AZ
+Function ConvertToLetter(iCol As Integer) As String
+   Dim iAlpha As Integer
+   Dim iRemainder As Integer
+   Dim n As Integer
+
+   iAlpha = Int(iCol / 27)
+   iRemainder = iCol - (iAlpha * 26)
+   n = iAlpha + 1
+   If iAlpha > 0 Then
+      If iCol >= (27 * n) - n + 1 Then
+        iAlpha = n
+        iRemainder = iCol - (iAlpha * 26)
+      End If
+      ConvertToLetter = Chr(iAlpha + 64)
+   End If
+   If iRemainder > 0 Then
+      ConvertToLetter = ConvertToLetter & Chr(iRemainder + 64)
+   End If
+End Function
+
+Function FindText(Target As String, Direction As String, SortColumn As Integer)
+
+    Dim x As Integer
+    Dim found As Range
+    Dim errorChecking As String
+
+'StartLoop:
+    For x = 0 To 3
+
+        If Direction = "Across" Then
+            If Target = Empty Then
+                Set found = Rows(1).End(xlToRight).Offset(0, 1)
+            Else
+                With Rows(1)
+                    Set found = .Find(what:=Target, After:=Cells(1, 1), lookat:=xlWhole)
+                End With
+            End If
+        
+        ElseIf Direction = "Down" Then
+            If Target = Empty Then
+                Set found = Range(ConvertToLetter(SortColumn) & "2").End(xlDown).Offset(1, 0)
+            Else
+                With Columns(1)
+                    Set found = .Find(what:=Target, After:=Cells(1, 1), lookat:=xlWhole)
+                End With
+            End If
+        Else
+            Direction = InputBox("Please Enter Correct Direction (Across or Down)")
+            If Direction = "" Then
+                Exit Function
+            End If
+            errorChecking = "Skip"
+        End If
+        
+        If found Is Nothing And Not errorChecking = "Skip" Then
+            errorChecking = InputBox("Please Enter Correct Target text to find")
+            If errorChecking = "" Then
+                Exit Function
+            End If
+            Target = errorChecking
+        ElseIf Not found Is Nothing Then
+            If Direction = "Across" Then
+                FindText = found.Column
+            Else
+                FindText = found.Row
+            End If
+            Exit Function
+         End If
+    errorChecking = ""
+        
+    Next x
+    FindText = 10000
+    
+End Function
+
+Sub MyConcatenate(SortColumn As Integer, LastRow As Integer, _
+    LastColumn As Integer, CompareRow As Integer)
+    
+    Dim CountRow As Integer, a As Integer
+    Dim CellValue As String
+    Dim CellStack As New Stack
+    
+
+    
+    For CountRow = CompareRow To LastRow
+    
+        If CellStack.StackEmpty Or Not CellStack.StackTop = CStr(Cells(CountRow, SortColumn).Value) Then
+        
+            If Not Cells(CountRow, SortColumn).Value = "" Then
+                CellStack.Push (CStr(Cells(CountRow, SortColumn).Value))
+            End If
+
+        
+        End If
+        Cells(CountRow, SortColumn).Value = ""
+    Next CountRow
+    
+    Do While Not CellStack.StackEmpty
+        CellValue = CellValue + CellStack.Pop()
+        If Not CellStack.StackEmpty Then
+            CellValue = CellValue + ", "
+        End If
+    Loop
+    
+    Cells(CompareRow, SortColumn).Value = CellValue
+    
+End Sub
+
+
+
+Function WSChecker(testName As String)
+    WSChecker = False
+    For Each ws In Worksheets
+        If testName = ws.Name Then
+            WSChecker = True
+            Exit Function
+        End If
+    Next ws
+End Function
+
+Sub LoopSort(LastRow As Integer, LastColumn As Integer, SortColumn As Integer)
+    Dim a As Integer, b As Integer, c As Integer
+    Dim FirstSubRow As Integer, LastSubRow As Integer
+    Dim SortValue As String
+    
+    For a = 2 To LastRow
+    
+        FirstSubRow = a
+        SortValue = CStr(Range(ConvertToLetter(SortColumn) & FirstSubRow).Value)
+        
+        For c = FirstSubRow To LastRow
+        
+            If Not SortValue = CStr(Range(ConvertToLetter(SortColumn) & c).Offset(1, 0).Value) Then
+                LastSubRow = Range(ConvertToLetter(SortColumn) & c).Row
+                Exit For
+            End If
+        Next c
+        
+        If Not FirstSubRow = LastSubRow Then
+            For b = 1 To LastColumn
+                Range(ConvertToLetter(b) & FirstSubRow & ":" & ConvertToLetter(b) & LastSubRow).Sort _
+                key1:=Range(ConvertToLetter(b) & FirstSubRow), order1:=xlAscending
+                MyConcatenate b, LastSubRow, LastColumn, FirstSubRow
+            Next b
+
+        End If
+        
+        a = LastSubRow
+    Next a
+End Sub
+
