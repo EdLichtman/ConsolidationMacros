@@ -1,0 +1,41 @@
+'Option Compare Database
+Option Explicit
+
+Private siTop As StackItem
+
+Property Get StackTop() As Variant
+    If StackEmpty Then
+        StackTop = Null
+    Else
+        StackTop = siTop.Value
+    End If
+End Property
+
+Property Get StackEmpty() As Boolean
+    ' Is the stack empty?  It can
+    ' only be empty if siTop is Nothing.
+    StackEmpty = (siTop Is Nothing)
+End Property
+
+Public Function Pop() As Variant
+    If Not StackEmpty Then
+        ' Get the value from the current top stack element.
+        ' Then, get a reference to the new stack top.
+        Pop = siTop.Value
+        Set siTop = siTop.NextItem
+    End If
+End Function
+
+Public Sub Push(ByVal varText As Variant)
+    ' Add a new item to the top of the stack.
+
+    Dim siNewTop As New StackItem
+
+    siNewTop.Value = varText
+    Set siNewTop.NextItem = siTop
+    Set siTop = siNewTop
+End Sub
+
+Private Sub Class_Initialize()
+
+End Sub
